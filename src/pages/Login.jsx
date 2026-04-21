@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function Login() {
+export default function Login({ goToChat }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -12,7 +12,7 @@ export default function Login() {
     });
 
     if (error) alert(error.message);
-    else alert("Signup successful! You can login now.");
+    else alert("Signup successful! Now login.");
   };
 
   const signIn = async () => {
@@ -22,7 +22,7 @@ export default function Login() {
     });
 
     if (error) alert(error.message);
-    else alert("Login successful!");
+    else if (goToChat) goToChat();
   };
 
   return (
