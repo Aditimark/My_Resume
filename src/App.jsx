@@ -1,96 +1,98 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import ProtectedRoute from "./routes/ProtectedRoute";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ChatPage from "./pages/ChatPage";
+import AdminPage from "./pages/AdminPage";
+import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState("user");
   const navigate = useNavigate();
+  const fetchRole = async (userId) => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
 
+  if (!error && data) {
+    setRole(data.role);
+  } else {
+    setRole("user");
+  }
+};
   useEffect(() => {
-    const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user || null);
-    };
+  // Get initial session
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    const currentUser = session?.user ?? null;
+    setUser(currentUser);
 
-    getSession();
+    if (currentUser) fetchRole(currentUser.id);
+  });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-      }
-    );
+  // Listen for changes
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    const currentUser = session?.user ?? null;
+    setUser(currentUser);
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
+    if (currentUser) {
+      fetchRole(currentUser.id);
+    } else {
+      setRole("user");
+    }
+  });
 
-  // Wrapper components (keep logic clean)
-  function HomeWrapper() {
-    return (
-      <Home
-        user={user}
-        goToLogin={() => navigate("/login")}
-        goToChat={() => navigate("/chat")}
-      />
-    );
-  }
+  return () => subscription.unsubscribe();
+}, []); 
 
-  function LoginWrapper() {
-    return (
-      <Login goToChat={() => navigate("/chat")} />
-    );
-  }
-
-  function ChatWrapper() {
-    if (!user) return <Navigate to="/login" />;
-
-    return (
-      <ChatPage
-        user={user}
-        goHome={() => navigate("/")}
-      />
-    );
-  }
-
-  
-
-return (
-  <Routes>
-    <Route
-      path="/"
-      element={
-        <Home
-          user={user}
-          goToLogin={() => navigate("/login")}
-          goToChat={() => navigate("/chat")}
-        />
-      }
-    />
-
-    <Route
-      path="/login"
-      element={<Login goToChat={() => navigate("/chat")} />}
-    />
-
-    <Route
-      path="/chat"
-      element={
-        <ProtectedRoute user={user}>
-          <ChatPage
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <Home
             user={user}
-            goHome={() => navigate("/")}
+            role={role}
+            goToLogin={() => navigate("/login")}
+            goToChat={() => navigate("/chat")}
           />
-        </ProtectedRoute>
-      }
-    />
-  </Routes>
-);
+        }
+      />
+
+      <Route
+  path="/login"
+  element={
+    user ? <Navigate to="/chat" /> : <Login />
+  }
+/>
+
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute user={user}>
+            <ChatPage user={user} role={role} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          user && role === "admin" ? (
+            <AdminPage user={user} role={role} />
+          ) : (
+            <Navigate to="/" />
+          )
+        }
+      />
+    </Routes>
+  );
 }
 
 export default App;

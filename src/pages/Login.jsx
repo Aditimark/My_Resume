@@ -6,24 +6,25 @@ export default function Login({ goToChat }) {
   const [password, setPassword] = useState("");
 
   const signUp = async () => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
 
-    if (error) alert(error.message);
-    else alert("Signup successful! Now login.");
-  };
+  if (error) alert(error.message);
+  else alert("Signup successful. Now login.");
+};
 
   const signIn = async () => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    if (error) alert(error.message);
-    else if (goToChat) goToChat();
-  };
+  if (error) {
+    alert(error.message);
+  }
+};
 
   return (
     <div className="flex h-screen items-center justify-center">
