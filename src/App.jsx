@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import ProtectedRoute from "./routes/ProtectedRoute";
+
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ChatPage from "./pages/ChatPage";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [page, setPage] = useState("home");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const getSession = async () => {
@@ -27,35 +30,67 @@ function App() {
     };
   }, []);
 
-  // If user tries to access chat without login
-  if (!user && page === "chat") {
-    return <Login goToChat={() => setPage("chat")} />;
-  }
-
-  if (page === "home") {
-  return (
-    <Home
-      user={user}
-      goToLogin={() => setPage("login")}
-      goToChat={() => setPage("chat")}
-    />
-  );
-}
-
-  if (page === "login") {
-    return <Login goToChat={() => setPage("chat")} />;
-  }
-
-  if (page === "chat" && user) {
+  // Wrapper components (keep logic clean)
+  function HomeWrapper() {
     return (
-      <ChatPage
+      <Home
         user={user}
-        goHome={() => setPage("home")}
+        goToLogin={() => navigate("/login")}
+        goToChat={() => navigate("/chat")}
       />
     );
   }
 
-  return <Home goToLogin={() => setPage("login")} />;
+  function LoginWrapper() {
+    return (
+      <Login goToChat={() => navigate("/chat")} />
+    );
+  }
+
+  function ChatWrapper() {
+    if (!user) return <Navigate to="/login" />;
+
+    return (
+      <ChatPage
+        user={user}
+        goHome={() => navigate("/")}
+      />
+    );
+  }
+
+  
+
+return (
+  <Routes>
+    <Route
+      path="/"
+      element={
+        <Home
+          user={user}
+          goToLogin={() => navigate("/login")}
+          goToChat={() => navigate("/chat")}
+        />
+      }
+    />
+
+    <Route
+      path="/login"
+      element={<Login goToChat={() => navigate("/chat")} />}
+    />
+
+    <Route
+      path="/chat"
+      element={
+        <ProtectedRoute user={user}>
+          <ChatPage
+            user={user}
+            goHome={() => navigate("/")}
+          />
+        </ProtectedRoute>
+      }
+    />
+  </Routes>
+);
 }
 
 export default App;

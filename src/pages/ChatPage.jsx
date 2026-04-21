@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
+import Navbar from "../components/Navbar";
 
-export default function ChatPage({ user, goHome }) {
+export default function ChatPage({ user }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     if (!user) return;
@@ -30,14 +32,18 @@ export default function ChatPage({ user, goHome }) {
     return () => supabase.removeChannel(channel);
   }, [user]);
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const loadMessages = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("messages")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
 
-    if (!error) setMessages(data);
+    setMessages(data || []);
   };
 
   const sendMessage = async () => {
@@ -50,6 +56,7 @@ export default function ChatPage({ user, goHome }) {
       created_at: new Date().toISOString(),
     };
 
+    // Optimistic UI
     setMessages((prev) => [...prev, newMsg]);
 
     await supabase.from("messages").insert([newMsg]);
@@ -58,53 +65,60 @@ export default function ChatPage({ user, goHome }) {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between mb-4">
-        <button
-          onClick={goHome}
-          className="bg-gray-300 px-3 py-1"
-        >
-          Home
-        </button>
+    <>
+      <Navbar user={user} />
 
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.reload();
-          }}
-          className="bg-red-500 text-white px-3 py-1"
-        >
-          Logout
-        </button>
-      </div>
-
-      <h2 className="text-xl mb-4">Chat</h2>
-
-      <div className="border h-80 overflow-y-scroll mb-4 p-2">
-        {messages.length === 0 ? (
-          <p>No messages yet</p>
-        ) : (
-          messages.map((msg, i) => (
-            <p key={i}>
-              <b>{msg.sender}:</b> {msg.content}
+      <div className="flex flex-col h-[90vh] bg-gray-50">
+        
+        {/* Chat Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <p className="text-gray-500 text-center mt-10">
+              Start the conversation 👋
             </p>
-          ))
-        )}
+          )}
+
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${
+                msg.sender === "user"
+                  ? "justify-end"
+                  : "justify-start"
+              }`}
+            >
+              <div
+                className={`px-4 py-2 rounded-2xl max-w-xs text-sm shadow ${
+                  msg.sender === "user"
+                    ? "bg-blue-500 text-white"
+                    : "bg-white border"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="p-4 border-t bg-white flex gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="flex-1 border p-3 rounded-full outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="Type a message..."
+          />
+
+          <button
+            onClick={sendMessage}
+            className="bg-blue-500 text-white px-5 rounded-full hover:bg-blue-600"
+          >
+            Send
+          </button>
+        </div>
       </div>
-
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        className="border w-full mb-2 p-2"
-        placeholder="Type message..."
-      />
-
-      <button
-        onClick={sendMessage}
-        className="bg-green-500 text-white px-4 py-2"
-      >
-        Send
-      </button>
-    </div>
+    </>
   );
 }
